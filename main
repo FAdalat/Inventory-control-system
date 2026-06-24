@@ -1,1 +1,44 @@
+import csv
+import sys
+
+def main():
+    if sys.argv[1] == "buy":
+        buy_mode()
+    elif sys.argv[1] == "sell":
+        sell_mode()
+    else:
+        sys.exit("There is no such mode.(Choose buy/sell)")
+
+def buy_mode():
+    while True:
+        try:
+            id = input("What's product's id? ")
+            kind = input("What is product? ")
+            cost = float(input("What's product's cost? "))
+            shp = float(input("What's product's shipping cost? "))
+            price = float(input("What's selling price? "))
+
+            with open("data.csv", "a") as file:
+                writer = csv.DictWriter(file, fieldnames=["id", "kind", "cost", "shp", "price"])
+                writer.writerow({"id": id, "kind": kind, "cost":cost, "shp": shp, "price":price})
+        except EOFError:
+            break
+
+def sell_mode():
+    ...
+
+def function_1():
+    ...
+
+
+def function_2():
+    ...
+
+
+def function_n():
+    ...
+
+
+if __name__ == "__main__":
+    main()
 
