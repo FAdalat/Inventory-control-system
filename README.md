@@ -25,11 +25,47 @@ or cloud service. This project solves that problem with nothing but Python's sta
 
 ```
 project.py        ← main program + all logic functions
-test_project.py   ← pytest test suite (4+ tests across 3+ functions)
+test_project.py   ← pytest test suite (11 tests across 3 functions)
 requirements.txt  ← pytest
 data.csv          ← auto-created on first run
 README.md
 ```
+
+### File breakdown
+
+**`project.py`** (~190 lines)
+The entire application lives here. Organised into four layers:
+
+- **Constants** (`DATA_FILE`, `FIELDNAMES`) — one place to change the filename or column layout
+- **CSV helpers** (`ensure_csv`, `load_inventory`, `save_inventory`) — all file I/O is isolated here; nothing else touches the disk directly
+- **Core logic** (`calculate_total`, `find_product`, `process_sale`) — pure or near-pure functions with no `input()` calls, making them straightforward to unit-test
+- **Modes** (`buy_mode`, `sell_mode`, `print_report`) — thin interactive shells that call the core logic and handle user I/O
+
+**`test_project.py`** (~70 lines)
+Covers the three testable functions required by CS50P:
+
+| Function | Tests | What is checked |
+|---|---|---|
+| `calculate_total` | 4 | empty list, floats, strings from CSV, single item |
+| `find_product` | 3 | match, no match, second item in list |
+| `process_sale` | 4 | success, stock reduction, insufficient stock, unknown ID |
+
+Each `process_sale` test runs against a temporary CSV created by a `pytest` fixture so the real `data.csv` is never touched.
+
+**`requirements.txt`** (1 line)
+Only external dependency is `pytest`. The main program uses only the Python standard library (`csv`, `sys`, `os`).
+
+**`data.csv`** (grows with use)
+Auto-created on first run by `ensure_csv()`. Columns:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | string | Unique product identifier (e.g. `SKU-001`) |
+| `kind` | string | Product name or description |
+| `cost` | float | Purchase / cost price |
+| `shp` | float | Shipping cost paid when buying |
+| `price` | float | Selling price to customer |
+| `q` | int | Current stock quantity |
 
 ---
 
