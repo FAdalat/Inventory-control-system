@@ -1,84 +1,186 @@
 import csv
 import sys
+import os
+
+DATA_FILE = "data.csv"
+FIELDNAMES = ["id", "kind", "cost", "shp", "price", "q"]
+
 
 def main():
-    if sys.argv[1] == "buy":
+    if len(sys.argv) < 2:
+        sys.exit("Usage: python project.py [buy|sell|report]")
+
+    mode = sys.argv[1].lower()
+
+    if mode == "buy":
         buy_mode()
-    elif sys.argv[1] == "sell":
+    elif mode == "sell":
         sell_mode()
+    elif mode == "report":
+        print_report()
     else:
-        sys.exit("There is no such mode.(Choose buy/sell)")
+        sys.exit("Unknown mode. Choose: buy / sell / report")
+
+
+# ── CSV helpers ──────────────────────────────────────────────────────────────
+
+def ensure_csv():
+    """Create data.csv with a header row if it does not yet exist."""
+    if not os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
+            writer.writeheader()
+
+
+def load_inventory():
+    """Return all rows from data.csv as a list of dicts.
+
+    Also repairs the file if it was written without a header row
+    (e.g. created by an older version of this program).
+    """
+    ensure_csv()
+    with open(DATA_FILE, "r", newline="") as f:
+        first_line = f.readline()
+
+    # If the first line isn't exactly our header, the file is header-less.
+    # Read the raw rows, then rewrite with a proper header.
+    expected_header = ",".join(FIELDNAMES)
+    if first_line.strip().replace("\r", "") != expected_header:
+        with open(DATA_FILE, "r", newline="") as f:
+            raw = list(csv.reader(f))
+        # Build dicts by positional alignment (works as long as column count matches)
+        rows = []
+        for cols in raw:
+            if len(cols) == len(FIELDNAMES):
+                rows.append(dict(zip(FIELDNAMES, cols)))
+        save_inventory(rows)   # rewrites with correct header
+        return rows
+
+    with open(DATA_FILE, "r", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def save_inventory(rows):
+    """Overwrite data.csv with *rows* (list of dicts)."""
+    with open(DATA_FILE, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+# ── Core logic (unit-testable) ────────────────────────────────────────────────
+
+def calculate_total(prices):
+    """Return the sum of an iterable of numeric prices (float)."""
+    return round(sum(float(p) for p in prices), 2)
+
+
+def find_product(rows, product_id):
+    """Return the row dict whose 'id' matches *product_id*, or None."""
+    for row in rows:
+        if row["id"] == product_id:
+            return row
+    return None
+
+
+def process_sale(product_id, quantity):
+    """
+    Deduct *quantity* units of *product_id* from inventory.
+
+    Returns (success: bool, unit_price: float | None).
+    - success=False when product not found or stock insufficient.
+    - On success the CSV is updated and the unit price is returned.
+    """
+    rows = load_inventory()
+    product = find_product(rows, product_id)
+
+    if product is None:
+        return False, None
+
+    new_q = int(product["q"]) - quantity
+    if new_q < 0:
+        return False, None
+
+    product["q"] = str(new_q)
+    save_inventory(rows)
+    return True, float(product["price"])
+
+
+# ── Modes ────────────────────────────────────────────────────────────────────
 
 def buy_mode():
+    ensure_csv()
+    print("=== BUY MODE  (Ctrl-D / Ctrl-Z to finish) ===")
     while True:
         try:
-            global number
-            global kind
-            global cost
-            global shp
-            global price
-            global q
+            product_id = input("Product ID    : ").strip()
+            kind       = input("Product name  : ").strip()
+            cost       = float(input("Cost price    : "))
+            shp        = float(input("Shipping cost : "))
+            price      = float(input("Selling price : "))
+            q          = int(input("Quantity      : "))
 
-            number = input("What's product's id? ")
-            kind = input("What is product? ")
-            cost = float(input("What's product's cost? "))
-            shp = float(input("What's product's shipping cost? "))
-            price = float(input("What's selling price? "))
-            q = int(input("Enter the quantity: "))
+            with open(DATA_FILE, "a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
+                writer.writerow({
+                    "id": product_id,
+                    "kind": kind,
+                    "cost": cost,
+                    "shp": shp,
+                    "price": price,
+                    "q": q,
+                })
+            print(f"  ✓ '{kind}' added.\n")
 
-            with open("data.csv", "a") as file:
-                writer = csv.DictWriter(file, fieldnames=["id", "kind", "cost", "shp", "price", "q"])
-                writer.writerow({"id": number, "kind": kind, "cost": cost, "shp": shp, "price": price, "q": q})
+        except ValueError:
+            print("  Invalid input — please enter numbers where required.\n")
         except EOFError:
+            print("\nDone buying.")
             break
+
 
 def sell_mode():
+    receipt_prices = []
+    print("=== SELL MODE  (Ctrl-D / Ctrl-Z to checkout) ===")
     while True:
         try:
-            id1 = input("Enter product's id: ")
-            q1 = int(input("How many: "))
-            if sell(id1,q1) == True:
-                print("Succesfull")
+            product_id = input("Product ID : ").strip()
+            quantity   = int(input("Quantity   : "))
+
+            success, unit_price = process_sale(product_id, quantity)
+            if success:
+                receipt_prices.extend([unit_price] * quantity)
+                print(f"  ✓ Sold {quantity} × ${unit_price:.2f}\n")
             else:
-                print("There is no enough stock")
+                print("  ✗ Product not found or insufficient stock.\n")
+
+        except ValueError:
+            print("  Invalid quantity — please enter a whole number.\n")
         except EOFError:
+            total = calculate_total(receipt_prices)
+            print(f"\n{'─'*30}")
+            print(f"  Items sold : {len(receipt_prices)}")
+            print(f"  Total      : ${total:.2f}")
+            print(f"{'─'*30}")
             break
 
-def sell(id1, q1):
-    rows = []
-    found = False
 
-    with open("data.csv", "r", newline="") as file:
-        reader = csv.DictReader(file)
+def print_report():
+    rows = load_inventory()
+    if not rows:
+        print("Inventory is empty.")
+        return
 
-        for row in reader:
-            if row["id"] == id1:
-                new_q = int(row["q"]) - q1
-
-                if new_q < 0:
-                    return False
-
-                row["q"] = str(new_q)
-                found = True
-
-            rows.append(row)
-
-    if found:
-        with open("data.csv", "w", newline="") as file:
-            writer = csv.DictWriter(
-                file,
-                fieldnames=["id", "kind", "cost", "sh.p", "price", "q"]
-            )
-            writer.writeheader()
-            writer.writerows(rows)
-
-        return True
-
-    return False
-
-def checkout():
-    ...
-
+    print(f"\n{'─'*60}")
+    print(f"{'ID':<10} {'Product':<20} {'Cost':>7} {'Ship':>6} {'Price':>7} {'Qty':>5}")
+    print(f"{'─'*60}")
+    for r in rows:
+        print(
+            f"{r['id']:<10} {r['kind']:<20} "
+            f"${float(r['cost']):>6.2f} ${float(r['shp']):>5.2f} "
+            f"${float(r['price']):>6.2f} {r['q']:>5}"
+        )
+    print(f"{'─'*60}\n")
 
 
 if __name__ == "__main__":
