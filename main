@@ -12,33 +12,74 @@ def main():
 def buy_mode():
     while True:
         try:
-            id = input("What's product's id? ")
+            global number
+            global kind
+            global cost
+            global shp
+            global price
+            global q
+
+            number = input("What's product's id? ")
             kind = input("What is product? ")
             cost = float(input("What's product's cost? "))
             shp = float(input("What's product's shipping cost? "))
             price = float(input("What's selling price? "))
+            q = int(input("Enter the quantity: "))
 
             with open("data.csv", "a") as file:
-                writer = csv.DictWriter(file, fieldnames=["id", "kind", "cost", "shp", "price"])
-                writer.writerow({"id": id, "kind": kind, "cost":cost, "shp": shp, "price":price})
+                writer = csv.DictWriter(file, fieldnames=["id", "kind", "cost", "shp", "price", "q"])
+                writer.writerow({"id": number, "kind": kind, "cost": cost, "shp": shp, "price": price, "q": q})
         except EOFError:
             break
 
 def sell_mode():
+    while True:
+        try:
+            id1 = input("Enter product's id: ")
+            q1 = int(input("How many: "))
+            if sell(id1,q1) == True:
+                print("Succesfull")
+            else:
+                print("There is no enough stock")
+        except EOFError:
+            break
+
+def sell(id1, q1):
+    rows = []
+    found = False
+
+    with open("data.csv", "r", newline="") as file:
+        reader = csv.DictReader(file)
+
+        for row in reader:
+            if row["id"] == id1:
+                new_q = int(row["q"]) - q1
+
+                if new_q < 0:
+                    return False
+
+                row["q"] = str(new_q)
+                found = True
+
+            rows.append(row)
+
+    if found:
+        with open("data.csv", "w", newline="") as file:
+            writer = csv.DictWriter(
+                file,
+                fieldnames=["id", "kind", "cost", "sh.p", "price", "q"]
+            )
+            writer.writeheader()
+            writer.writerows(rows)
+
+        return True
+
+    return False
+
+def checkout():
     ...
 
-def function_1():
-    ...
-
-
-def function_2():
-    ...
-
-
-def function_n():
-    ...
 
 
 if __name__ == "__main__":
     main()
-
