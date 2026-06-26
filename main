@@ -22,7 +22,7 @@ def main():
         sys.exit("Unknown mode. Choose: buy / sell / report")
 
 
-# ── CSV helpers ──────────────────────────────────────────────────────────────
+# ── CSV helpers ────
 
 def ensure_csv():
     """Create data.csv with a header row if it does not yet exist."""
@@ -42,13 +42,10 @@ def load_inventory():
     with open(DATA_FILE, "r", newline="") as f:
         first_line = f.readline()
 
-    # If the first line isn't exactly our header, the file is header-less.
-    # Read the raw rows, then rewrite with a proper header.
     expected_header = ",".join(FIELDNAMES)
     if first_line.strip().replace("\r", "") != expected_header:
         with open(DATA_FILE, "r", newline="") as f:
             raw = list(csv.reader(f))
-        # Build dicts by positional alignment (works as long as column count matches)
         rows = []
         for cols in raw:
             if len(cols) == len(FIELDNAMES):
@@ -57,7 +54,7 @@ def load_inventory():
         return rows
 
     with open(DATA_FILE, "r", newline="") as f:
-        return list(csv.DictReader(f))
+        return [row for row in csv.DictReader(f) if row["id"] != "id"]
 
 
 def save_inventory(rows):
@@ -68,7 +65,7 @@ def save_inventory(rows):
         writer.writerows(rows)
 
 
-# ── Core logic (unit-testable) ────────────────────────────────────────────────
+# ── Core logic (unit-testable) ────
 
 def calculate_total(prices):
     """Return the sum of an iterable of numeric prices (float)."""
@@ -106,7 +103,7 @@ def process_sale(product_id, quantity):
     return True, float(product["price"])
 
 
-# ── Modes ────────────────────────────────────────────────────────────────────
+# ── Modes ────
 
 def buy_mode():
     ensure_csv()
@@ -121,7 +118,10 @@ def buy_mode():
             q          = int(input("Quantity      : "))
 
             with open(DATA_FILE, "a", newline="") as f:
+                write_header = f.tell() == 0
                 writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
+                if write_header:
+                    writer.writeheader()
                 writer.writerow({
                     "id": product_id,
                     "kind": kind,
