@@ -1,5 +1,4 @@
 # Inventory & POS System
-#### Video Demo: `<URL>`
 #### Description:
 
 A command-line inventory and point-of-sale (POS) tool for small wholesale or retail businesses.
