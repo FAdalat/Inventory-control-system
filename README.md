@@ -1,5 +1,8 @@
 # Inventory & POS System
 #### Video Demo: `https://youtu.be/3NDfyQ6Kmkw`
+
+#### CS50 Python Final Project
+
 #### Description:
 
 A command-line inventory and point-of-sale (POS) tool for small wholesale or retail businesses.
